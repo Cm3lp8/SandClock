@@ -1,38 +1,38 @@
 use std::fmt::Display;
 
 #[derive(Debug)]
-pub enum UserConnectedBaseError {
+pub enum SandClockError {
     InsertionFailure,
     BuildErrorNoDurationSet,
     BuildErrorNoTimeOutSet,
     Io(std::io::Error),
 }
 
-impl Display for UserConnectedBaseError {
+impl Display for SandClockError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UserConnectedBaseError::InsertionFailure => {
+            SandClockError::InsertionFailure => {
                 write!(f, "InsertaionFailure")
             }
-            UserConnectedBaseError::BuildErrorNoTimeOutSet => {
+            SandClockError::BuildErrorNoTimeOutSet => {
                 write!(
                     f,
                     "User connected base : Build error  No Timeout callback set !"
                 )
             }
-            UserConnectedBaseError::BuildErrorNoDurationSet => {
+            SandClockError::BuildErrorNoDurationSet => {
                 write!(f, "User connected base : Build error  No Duration set !")
             }
 
-            UserConnectedBaseError::Io(e) => {
+            SandClockError::Io(e) => {
                 write!(f, "Io error [{:?}]", e.to_string())
             }
         }
     }
 }
 
-impl From<std::io::Error> for UserConnectedBaseError {
+impl From<std::io::Error> for SandClockError {
     fn from(value: std::io::Error) -> Self {
-        UserConnectedBaseError::Io(value)
+        SandClockError::Io(value)
     }
 }
