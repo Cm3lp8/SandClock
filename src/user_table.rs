@@ -27,7 +27,7 @@ mod main_type {
         phantom_data: PhantomData<K>,
     }
     impl<K: SandClockInsertion + Debug> SandClockBuilder<K> {
-        pub fn with_time_out_event(
+        pub fn set_time_out_event(
             &mut self,
             t_o_event: impl Fn(TimeOutUpdate<K>) + Send + Sync + 'static,
         ) -> &mut Self {

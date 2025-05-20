@@ -19,7 +19,7 @@ impl SandClockConfig {
     pub fn get_timer_loop_refreshing_duration(&self) -> Duration {
         self.refresh_duration
     }
-    pub fn frequence(mut self, frequence_duration: Duration) -> Self {
+    pub fn frequency(mut self, frequence_duration: Duration) -> Self {
         self.refresh_duration = frequence_duration;
         self
     }
