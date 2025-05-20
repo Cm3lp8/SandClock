@@ -49,3 +49,7 @@
  user_connection_base.insert_or_update_timer("alf".to_string());
 
  ```
+## Disclaimers 
+
+Due to its polling approach, the timeout can't be precise in the milliseconds order. Do not use if you need precise timeouts. 
+This crate is still in beta, not really tested besides my own projects.
