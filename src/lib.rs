@@ -30,6 +30,7 @@
 //! ```rust
 //!
 //!  use sand_clock::prelude::*;
+//!  use std::time::Duration;
 //!
 //!  //Configure the clock, set the time-checking frequency :
 //!  let config = SandClockConfig::new().frequency(Duration::from_millis(200)); // ou SandClockConfig::default();
@@ -42,7 +43,7 @@
 //!            println!("No more known activity: [{:?}] has disconnected", conn_update.key());
 //!        }
 //!    })
-//!    .set_time_out_duration(time_out_duration)
+//!    .set_time_out_duration(Duration::from_millis(15_000))
 //!    .build()
 //!    .unwrap();
 //!

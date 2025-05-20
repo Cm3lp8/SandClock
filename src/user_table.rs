@@ -12,10 +12,7 @@ mod main_type {
         timer_loop::TimerLoop,
     };
 
-    use super::{
-        time_update::{ClockEvent, TimeOutUpdate},
-        timer_status::TimerStatus,
-    };
+    use super::{time_update::TimeOutUpdate, timer_status::TimerStatus};
 
     type UserId = usize;
 
@@ -88,11 +85,13 @@ mod main_type {
         ///
         /// ### Example
         /// ```rust
+        /// use std::time::Duration;
+        /// use sand_clock::{SandClockConfig, SandClock};
         /// let sand_clock = SandClock::<usize>::new(SandClockConfig::default())
         ///     .set_time_out_event(|clock_event| {
         ///         println!("Timeout for key: {:?}", clock_event.key());
         ///     })
-        ///     .set_time_out_duration(Duration::from_secs(10));
+        ///     .set_time_out_duration(Duration::from_secs(1));
         /// ```
 
         pub fn new(config: SandClockConfig) -> SandClockBuilder<K> {
@@ -114,7 +113,15 @@ mod main_type {
         ///
         /// ### Example
         /// ```rust
-        /// sand_clock.insert_or_update_timer(user_id);
+        /// use std::time::Duration;
+        /// use sand_clock::{SandClockConfig, SandClock};
+        /// let sand_clock = SandClock::<usize>::new(SandClockConfig::default())
+        ///     .set_time_out_event(|clock_event| {
+        ///         println!("Timeout for key: {:?}", clock_event.key());
+        ///     })
+        ///     .set_time_out_duration(Duration::from_secs(1)).build().unwrap();
+        ///  use sand_clock::prelude::*;
+        /// sand_clock.insert_or_update_timer(0);
         /// ```
 
         pub fn insert_or_update_timer(&self, key: K) {
@@ -219,10 +226,7 @@ mod time_out {
 }
 
 mod time_update {
-    use std::{
-        fmt::{Debug, Display},
-        hash::Hash,
-    };
+    use std::fmt::{Debug, Display};
 
     use crate::{InsertSync, SandClockInsertion};
 
@@ -265,7 +269,7 @@ mod time_update {
 }
 
 mod sync_insertion {
-    use std::{any::TypeId, hash::Hash, ops::Deref, sync::Arc};
+    use std::{hash::Hash, ops::Deref, sync::Arc};
 
     /// ```sync_insertion``` defines utils to safely use DashMap with Send + Sync key.
 
@@ -334,8 +338,29 @@ mod sync_insertion {
     /// It is designed to be automatically implemented for most common key types.
     ///
     /// ### Blanket implementation
-    /// ```rust
-    /// impl<T: Send + Sync + Clone + Eq + Hash + 'static> SandClockInsertion for T
+    /// ```rust, ignore
+    /// use sand_clock::SandClockInsertion;
+    /// use std::sync::{Arc};
+    /// use sand_clock::InsertSync;
+    /// use std::hash::Hash;
+    /// use std::marker::{PhantomData, Sync, Send};
+    ///
+    ///
+    /// #[derive(Clone, Hash,PartialEq,Debug, Eq)]
+    /// struct ExampleType;
+    /// unsafe impl Send for ExampleType {};
+    /// unsafe impl Sync for ExampleType {};
+    ///
+    ///      
+    /// impl SandClockInsertion for ExampleType {
+    ///        fn to_insert_sync(self) -> InsertSync<Self> {
+    ///if std::mem::size_of::<ExampleType>() <= 8 {
+    ///            InsertSync::Plain(self)
+    ///       } else {
+    ///            InsertSync::Shared(Arc::new(self))
+    ///        }
+    ///        }
+    /// }
     /// ```
     /// This means you can use `usize`, `String`, `Arc<T>`, or any other `T` satisfying the bounds.
 

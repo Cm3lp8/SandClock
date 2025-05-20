@@ -32,7 +32,9 @@ impl Default for SandClockConfig {
     ///
     /// Equivalent to:
     /// ```rust
-    /// SandClockConfig::new().frequency(Duration::from_secs(2))
+    /// use std::time::Duration;
+    /// use sand_clock::SandClockConfig;
+    /// SandClockConfig::new().frequency(Duration::from_secs(2));
     /// ```
 
     fn default() -> Self {
