@@ -57,3 +57,6 @@
 - This crate is currently in beta and has only been tested in my personal projects.  
   Use it at your own risk.
 
+## License
+
+This project is licensed under the MIT OR Apache-2.0 License.
