@@ -36,7 +36,6 @@ impl Default for SandClockConfig {
     /// use sand_clock::SandClockConfig;
     /// SandClockConfig::new().frequency(Duration::from_secs(2));
     /// ```
-
     fn default() -> Self {
         Self {
             refresh_duration: Duration::from_millis(1000),
@@ -49,15 +48,12 @@ impl SandClockConfig {
     /// To customize the frequency, use [`Self::frequency()`] on the returned config.
     ///
     /// This method is equivalent to [`Default::default()`].
-
     pub fn new() -> Self {
-        let config = Self::default();
-        config
+        Self::default()
     }
     /// Returns the duration currently set as the polling interval.
     ///
     /// This is the frequency at which the internal timer loop runs to check for expired entries.
-
     pub fn get_timer_loop_refreshing_duration(&self) -> Duration {
         self.refresh_duration
     }

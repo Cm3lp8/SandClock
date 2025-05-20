@@ -11,6 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[allow(dead_code)]
 pub struct TimerLoop<K: SandClockInsertion + Debug> {
     t_o_cb: Arc<dyn Fn(TimeOutUpdate<K>) + Send + Sync + 'static>,
     map: Arc<DashMap<InsertSync<K>, TimerStatus>>,
@@ -38,14 +39,13 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
     ///
     /// # Note
     /// Expired entries are removed after each polling cycle to free resources.
-
     pub fn run(
         config: &SandClockConfig,
         map: &Arc<DashMap<InsertSync<K>, TimerStatus>>,
         t_o_cb: &Arc<dyn Fn(TimeOutUpdate<K>) + Send + Sync + 'static>,
         time_out: Duration,
     ) {
-        let timer_loop: TimerLoop<K> = TimerLoop {
+        let _timer_loop: TimerLoop<K> = TimerLoop {
             t_o_cb: t_o_cb.clone(),
             map: map.clone(),
         };
@@ -69,7 +69,6 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
                             connection_status.time_out_info().get_last_instant_update();
 
                         let now = Instant::now();
-                        let duration_since = now.duration_since(last_updated_instant);
 
                         if now.duration_since(last_updated_instant) >= time_out {
                             let key = connection_status_ref.key().clone();

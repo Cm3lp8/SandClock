@@ -3,7 +3,7 @@ pub use sync_insertion::*;
 pub use time_update::{ClockEvent, TimeOutUpdate};
 pub use timer_status::TimerStatus;
 mod main_type {
-    use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc, time::Duration};
+    use std::{fmt::Debug, marker::PhantomData, sync::Arc, time::Duration};
 
     use dashmap::DashMap;
 
@@ -13,8 +13,6 @@ mod main_type {
     };
 
     use super::{time_update::TimeOutUpdate, timer_status::TimerStatus};
-
-    type UserId = usize;
 
     pub struct SandClockBuilder<K: SandClockInsertion + Debug> {
         time_out_event_call_back: Option<Arc<dyn Fn(TimeOutUpdate<K>) + Send + Sync + 'static>>,
@@ -45,11 +43,10 @@ mod main_type {
                         return Err(SandClockError::BuildErrorNoDurationSet);
                     };
 
-                let time_out_sender =
-                    TimerLoop::run(&self.config, &map, &time_out, time_out_duration);
+                TimerLoop::run(&self.config, &map, &time_out, time_out_duration);
                 Ok(SandClock {
                     map,
-                    config: std::mem::replace(&mut self.config, SandClockConfig::default()),
+                    config: std::mem::take(&mut self.config),
                     time_out_duration,
                 })
             } else {
@@ -68,7 +65,7 @@ mod main_type {
             Self {
                 map: self.map.clone(),
                 config: self.config.clone(),
-                time_out_duration: self.time_out_duration.clone(),
+                time_out_duration: self.time_out_duration,
             }
         }
     }
@@ -93,7 +90,7 @@ mod main_type {
         ///     })
         ///     .set_time_out_duration(Duration::from_secs(1));
         /// ```
-
+        #[allow(clippy::new_ret_no_self)]
         pub fn new(config: SandClockConfig) -> SandClockBuilder<K> {
             SandClockBuilder {
                 time_out_event_call_back: None,
@@ -123,12 +120,11 @@ mod main_type {
         ///  use sand_clock::prelude::*;
         /// sand_clock.insert_or_update_timer(0);
         /// ```
-
         pub fn insert_or_update_timer(&self, key: K) {
             self.map
                 .entry(key.to_insert_sync())
                 .and_modify(|conn_status| conn_status.time_out_handler().update_timer())
-                .or_insert(TimerStatus::new());
+                .or_default();
         }
     }
 }
@@ -154,6 +150,14 @@ mod timer_status {
         time_out: Timer,
     }
 
+    impl Default for TimerStatus {
+        fn default() -> Self {
+            Self {
+                expired: false,
+                time_out: Timer::new(),
+            }
+        }
+    }
     impl TimerStatus {
         /// Creates a new, non-expired [`TimerStatus`] with a fresh internal timer.
         pub fn new() -> Self {
@@ -203,6 +207,13 @@ mod time_out {
     pub struct Timer {
         last_update: Instant,
     }
+    impl Default for Timer {
+        fn default() -> Self {
+            Self {
+                last_update: Instant::now(),
+            }
+        }
+    }
     impl Timer {
         /// Creates a new `Timer` initialized with the current time (`Instant::now()`).
         pub fn new() -> Self {
@@ -229,8 +240,6 @@ mod time_update {
     use std::fmt::{Debug, Display};
 
     use crate::{InsertSync, SandClockInsertion};
-
-    type UserId = usize;
 
     #[derive(Clone, Copy, Debug)]
     pub enum ClockEvent {
@@ -272,7 +281,7 @@ mod sync_insertion {
     use std::{hash::Hash, ops::Deref, sync::Arc};
 
     /// ```sync_insertion``` defines utils to safely use DashMap with Send + Sync key.
-
+    ///
     /// Wrapper enum used internally by `SandClock` to safely store keys in a concurrent map.
     ///
     /// `InsertSync<T>` allows your key type `T` to be used inside a multithreaded [`DashMap`],
@@ -299,8 +308,8 @@ mod sync_insertion {
         type Target = T;
         fn deref(&self) -> &Self::Target {
             match self {
-                Self::Plain(v) => &v,
-                Self::Shared(v) => &v,
+                Self::Plain(v) => v,
+                Self::Shared(v) => v,
             }
         }
     }
@@ -363,7 +372,6 @@ mod sync_insertion {
     /// }
     /// ```
     /// This means you can use `usize`, `String`, `Arc<T>`, or any other `T` satisfying the bounds.
-
     pub trait SandClockInsertion: Sized + Send + Sync + Clone + Hash + Eq + 'static {
         ///
         ////// Converts the key into an [`InsertSync`] wrapper used internally by `SandClock`.

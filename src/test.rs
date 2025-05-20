@@ -8,7 +8,7 @@ use crate::prelude::*;
 #[test]
 fn test_users_connection_table() {
     let user_connection_base = SandClock::new(SandClockConfig::default())
-        .set_time_out_event(|conn_update| { /**/ })
+        .set_time_out_event(|_conn_update| { /**/ })
         .set_time_out_duration(Duration::from_secs(5))
         .build()
         .unwrap();
@@ -16,7 +16,7 @@ fn test_users_connection_table() {
     user_connection_base.insert_or_update_timer(0);
 
     let user_connection_base = SandClock::new(SandClockConfig::default())
-        .set_time_out_event(|conn_update| { /**/ })
+        .set_time_out_event(|_conn_update| { /**/ })
         .set_time_out_duration(Duration::from_secs(5))
         .build()
         .unwrap();
@@ -24,7 +24,6 @@ fn test_users_connection_table() {
     user_connection_base.insert_or_update_timer(Ipv4Addr::new(192, 168, 1, 22));
 }
 
-type UserId = usize;
 #[test]
 fn test_timer() {
     let channel = crossbeam_channel::bounded::<(String, bool)>(13);
