@@ -1,4 +1,5 @@
 pub use main_type::SandClock;
+pub use sync_insertion::*;
 pub use time_out::Timer;
 pub use time_update::{ClockEvent, TimeOutUpdate};
 pub use timer_status::TimerStatus;
@@ -7,7 +8,10 @@ mod main_type {
 
     use dashmap::DashMap;
 
-    use crate::{config::SandClockConfig, errors::SandClockError, timer_loop::TimerLoop};
+    use crate::{
+        InsertSync, SandClockInsertion, config::SandClockConfig, errors::SandClockError,
+        timer_loop::TimerLoop,
+    };
 
     use super::{
         time_update::{ClockEvent, TimeOutUpdate},
@@ -16,13 +20,13 @@ mod main_type {
 
     type UserId = usize;
 
-    pub struct SandClockBuilder<K: Hash + Eq + Send + Sync + Copy> {
+    pub struct SandClockBuilder<K: SandClockInsertion + Debug> {
         time_out_event_call_back: Option<Arc<dyn Fn(TimeOutUpdate<K>) + Send + Sync + 'static>>,
         time_out_duration: Option<Duration>,
         config: SandClockConfig,
         phantom_data: PhantomData<K>,
     }
-    impl<K: Hash + Eq + Copy + Send + Sync + 'static + Debug> SandClockBuilder<K> {
+    impl<K: SandClockInsertion + Debug> SandClockBuilder<K> {
         pub fn with_time_out_event(
             &mut self,
             t_o_event: impl Fn(TimeOutUpdate<K>) + Send + Sync + 'static,
@@ -58,13 +62,13 @@ mod main_type {
         }
     }
 
-    pub struct SandClock<K: Hash + Eq + Copy + Debug> {
-        map: Arc<DashMap<K, TimerStatus>>,
+    pub struct SandClock<K: SandClockInsertion> {
+        map: Arc<DashMap<InsertSync<K>, TimerStatus>>,
         config: SandClockConfig,
         time_out_duration: Duration,
     }
 
-    impl<K: Hash + Eq + Copy + Send + Sync + 'static + Debug> SandClock<K> {
+    impl<K: SandClockInsertion + Debug> SandClock<K> {
         pub fn new(config: SandClockConfig) -> SandClockBuilder<K> {
             SandClockBuilder {
                 time_out_event_call_back: None,
@@ -78,7 +82,7 @@ mod main_type {
         /// new Instant.
         pub fn insert_or_update_timer(&self, key: K) {
             self.map
-                .entry(key)
+                .entry(key.to_insert_sync())
                 .and_modify(|conn_status| conn_status.time_out_handler().update_timer())
                 .or_insert(TimerStatus::new());
         }
@@ -141,7 +145,12 @@ mod time_out {
 }
 
 mod time_update {
-    use std::{fmt::Display, hash::Hash};
+    use std::{
+        fmt::{Debug, Display},
+        hash::Hash,
+    };
+
+    use crate::{InsertSync, SandClockInsertion};
 
     type UserId = usize;
 
@@ -162,19 +171,70 @@ mod time_update {
 
     /// TimeOutUpdate represents an information about an user connection that can be passed in
     /// time_out callback.
-    pub struct TimeOutUpdate<K: Hash + Eq + Copy> {
-        key: K,
+    pub struct TimeOutUpdate<K: SandClockInsertion + Debug> {
+        key: InsertSync<K>,
         event: ClockEvent,
     }
-    impl<K: Hash + Eq + Copy> TimeOutUpdate<K> {
-        pub fn new(key: K, event: ClockEvent) -> Self {
+    impl<K: SandClockInsertion + Debug> TimeOutUpdate<K> {
+        pub fn new(key: InsertSync<K>, event: ClockEvent) -> Self {
             Self { key, event }
         }
-        pub fn key(&self) -> K {
-            self.key
+        pub fn key(&self) -> InsertSync<K> {
+            self.key.clone()
         }
         pub fn event(&self) -> ClockEvent {
             self.event
+        }
+    }
+}
+
+mod sync_insertion {
+    use std::{any::TypeId, hash::Hash, ops::Deref, sync::Arc};
+
+    #[derive(Hash, PartialEq, Eq, Debug)]
+    pub enum InsertSync<T> {
+        Plain(T),
+        Shared(Arc<T>),
+    }
+
+    impl<T> Deref for InsertSync<T> {
+        type Target = T;
+        fn deref(&self) -> &Self::Target {
+            match self {
+                Self::Plain(v) => &v,
+                Self::Shared(v) => &v,
+            }
+        }
+    }
+    impl<T: Clone> Clone for InsertSync<T> {
+        fn clone(&self) -> Self {
+            match self {
+                Self::Plain(v) => Self::Plain(v.clone()),
+                Self::Shared(v) => Self::Shared(v.clone()),
+            }
+        }
+    }
+
+    impl<T: Clone> InsertSync<T> {
+        pub fn into_inner(self) -> T {
+            match self {
+                InsertSync::Plain(v) => v,
+                InsertSync::Shared(v) => (*v).clone(),
+            }
+        }
+    }
+
+    pub trait SandClockInsertion: Sized + Send + Sync + Clone + Hash + Eq + 'static {
+        fn to_insert_sync(self) -> InsertSync<Self>;
+    }
+
+    impl<T: Send + Sync + Clone + Eq + Hash + 'static> SandClockInsertion for T {
+        fn to_insert_sync(self) -> InsertSync<Self> {
+            if std::mem::size_of::<T>() <= 8 {
+                InsertSync::Plain(self)
+            } else {
+                InsertSync::Shared(Arc::new(self))
+            }
         }
     }
 }
