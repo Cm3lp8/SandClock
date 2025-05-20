@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+#[derive(Clone)]
 pub struct SandClockConfig {
     refresh_duration: Duration,
 }

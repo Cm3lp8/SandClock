@@ -1,6 +1,5 @@
 pub use main_type::SandClock;
 pub use sync_insertion::*;
-pub use time_out::Timer;
 pub use time_update::{ClockEvent, TimeOutUpdate};
 pub use timer_status::TimerStatus;
 mod main_type {
@@ -67,8 +66,29 @@ mod main_type {
         config: SandClockConfig,
         time_out_duration: Duration,
     }
+    impl<K: SandClockInsertion> Clone for SandClock<K> {
+        fn clone(&self) -> Self {
+            Self {
+                map: self.map.clone(),
+                config: self.config.clone(),
+                time_out_duration: self.time_out_duration.clone(),
+            }
+        }
+    }
 
     impl<K: SandClockInsertion + Debug> SandClock<K> {
+        /// Create a new ```SandClock<K>```.
+        ///
+        /// K is SandClockInsertation bounded. It is used to wrap the user key
+        /// into an usable type in dashmap + multihtread context.
+        ///
+        /// # Example
+        ///```
+        ///     let sand_clock = SandClock::<usize>::new(SandClockConfig::default())
+        ///                                    .set_time_out_event(|clock_event|{})
+        ///                                    .set_time_out_duration(Duration::from_secs(10));
+        ///```
+        ///
         pub fn new(config: SandClockConfig) -> SandClockBuilder<K> {
             SandClockBuilder {
                 time_out_event_call_back: None,
