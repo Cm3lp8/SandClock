@@ -49,7 +49,11 @@
  user_connection_base.insert_or_update_timer("alf".to_string());
 
  ```
-## Disclaimers 
 
-Due to its polling approach, the timeout can't be precise in the milliseconds order. Do not use if you need precise timeouts. 
-This crate is still in beta, not really tested besides my own projects.
+## Disclaimers
+
+- SandClock uses a polling mechanism, so timeouts are not accurate to the millisecond.  
+  **Do not use this crate if your application requires precise timeout accuracy.**
+- This crate is currently in beta and has only been tested in my personal projects.  
+  Use it at your own risk.
+
