@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "HashMap with timeouts."
 license = "MIT OR Apache-2.0"
+authors = ["Camille Le Pennec <camille.lpennec@gmail.com>"]
 repository = "https://github.com/Cm3lp8/SandClock"
 readme = "README.md"
 
