@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{config::SandClockConfig, user_table::*};
+use crate::prelude::*;
 
 #[test]
 fn test_users_connection_table() {
