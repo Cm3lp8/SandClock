@@ -17,12 +17,28 @@ pub struct TimerLoop<K: SandClockInsertion + Debug> {
 }
 
 impl<K: SandClockInsertion + Debug> TimerLoop<K> {
-    /// TimeLoop runs on a separate thread and loop over registered entries. Each loop round compares
-    /// Instant::now() with the last updated instant value of the current entry iterated.
-    /// If the duration between the two is greater than the tim_out threshold set by user, time_out
-    /// event callback can be called.
     ///
+    ////// Starts the internal timer loop in a dedicated background thread.
     ///
+    /// This loop periodically scans all registered entries in the `SandClock`.
+    /// For each entry, it compares the current time (`Instant::now()`) with the last recorded update time.
+    /// If the elapsed duration exceeds the user-defined timeout threshold,
+    /// the corresponding timeout event callback is triggered.
+    ///
+    /// The refresh interval of the loop is configured via the provided [`SandClockConfig`].
+    ///
+    /// This method is called internally by [`SandClock::build()`] and should not need
+    /// to be invoked manually under normal usage.
+    ///
+    /// # Arguments
+    /// - `config`: The configuration object that sets the refresh interval of the loop.
+    /// - `map`: Shared concurrent map storing entries and their timeout info.
+    /// - `t_o_cb`: User-defined callback triggered on timeout.
+    /// - `time_out`: The duration threshold beyond which a key is considered inactive.
+    ///
+    /// # Note
+    /// Expired entries are removed after each polling cycle to free resources.
+
     pub fn run(
         config: &SandClockConfig,
         map: &Arc<DashMap<InsertSync<K>, TimerStatus>>,
@@ -66,7 +82,6 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
                             }
                         };
                     } else {
-                        //todo clean the map (remove disconnected)
                         break 'inner_it;
                     }
                 }

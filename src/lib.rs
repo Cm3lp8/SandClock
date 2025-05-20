@@ -7,6 +7,14 @@
 //!
 //!  ⚙️ Runtime-free design: SandClock uses a single background thread and requires no async runtime.
 //!
+//! ## Quick links
+//!
+//! - [`SandClock`] — main entry point, used to insert or update tracked entities
+//! - [`SandClockConfig`] — configures the loop frequency
+//! - [`ClockEvent`] — type of events triggered on timeout
+//! - [`TimeOutUpdate`] — passed to your callback when a timeout occurs
+//! - [`InsertSync`] — internal wrapper around your key type
+//!
 //! ## How it works
 //!
 //! Each tracked entity can periodically **signal** the SandClock using its associated key.
@@ -47,20 +55,28 @@
 //!
 //! ```
 
-mod config;
+pub mod config;
 
-mod errors;
+pub mod errors;
 #[cfg(test)]
 mod test;
-mod timer_loop;
-mod user_table;
+pub mod timer_loop;
+pub mod user_table;
 
-pub use config::SandClockConfig;
-pub use errors::SandClockError;
-pub use user_table::{ClockEvent, InsertSync, SandClock, SandClockInsertion};
+//pub use config::SandClockConfig;
+//pub use errors::SandClockError;
+//pub use user_table::{ClockEvent, InsertSync, SandClock, SandClockInsertion};
 
 pub mod prelude {
     pub use super::{
-        ClockEvent, InsertSync, SandClock, SandClockConfig, SandClockError, SandClockInsertion,
+        config::SandClockConfig, errors::SandClockError, user_table::ClockEvent,
+        user_table::InsertSync, user_table::SandClock, user_table::SandClockInsertion,
+        user_table::TimeOutUpdate,
     };
 }
+
+pub use {
+    config::SandClockConfig, errors::SandClockError, user_table::ClockEvent,
+    user_table::InsertSync, user_table::SandClock, user_table::SandClockInsertion,
+    user_table::TimeOutUpdate,
+};
