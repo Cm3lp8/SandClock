@@ -8,19 +8,7 @@
  **SandClock** is a time-aware `HashMap` designed to track whether a given entity is still active.  
  It’s ideal for use cases such as presence detection, ephemeral sessions, or activity timeouts.
 
-  ⚙️ Runtime-free design: SandClock uses a single background thread and requires no async runtime.
-
- ## How it works
-
- Each tracked entity can periodically **signal** the SandClock using its associated key.
-
- If signaling stops within a defined timeout, SandClock **automatically triggers a callback**, notifying the caller that the entity is no longer active.  
- The entity is then removed from the map.
-
- Internally, SandClock uses a lightweight polling loop to monitor timeouts.
- This approach aims to avoid the complexity of timers per entry, while maintaining predictable performance
-
- ### Example
+### Quick Start
 
  ```rust
 
@@ -49,6 +37,20 @@
  user_connection_base.insert_or_update_timer("alf".to_string());
 
  ```
+
+  ⚙️ Runtime-free design: SandClock uses a single background thread and requires no async runtime.
+
+ ## How it works
+
+ Each tracked entity can periodically **signal** the SandClock using its associated key.
+
+ If signaling stops within a defined timeout, SandClock **automatically triggers a callback**, notifying the caller that the entity is no longer active.  
+ The entity is then removed from the map.
+
+ Internally, SandClock uses a polling loop to monitor timeouts.
+
+
+ 
 
 ## Disclaimers
 
