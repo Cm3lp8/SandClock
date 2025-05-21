@@ -1,4 +1,4 @@
-//! SandClock Configuration
+//! `SandClock Configuration`
 use std::time::Duration;
 
 /// Configuration object for a [`SandClock`] instance.
@@ -48,15 +48,18 @@ impl SandClockConfig {
     /// To customize the frequency, use [`Self::frequency()`] on the returned config.
     ///
     /// This method is equivalent to [`Default::default()`].
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
     /// Returns the duration currently set as the polling interval.
     ///
     /// This is the frequency at which the internal timer loop runs to check for expired entries.
+    #[must_use]
     pub fn get_timer_loop_refreshing_duration(&self) -> Duration {
         self.refresh_duration
     }
+    #[must_use]
     pub fn frequency(mut self, frequence_duration: Duration) -> Self {
         self.refresh_duration = frequence_duration;
         self

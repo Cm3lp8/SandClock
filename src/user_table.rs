@@ -91,6 +91,7 @@ mod main_type {
         ///     .set_time_out_duration(Duration::from_secs(1));
         /// ```
         #[allow(clippy::new_ret_no_self)]
+        #[must_use]
         pub fn new(config: SandClockConfig) -> SandClockBuilder<K> {
             SandClockBuilder {
                 time_out_event_call_back: None,
@@ -160,6 +161,7 @@ mod timer_status {
     }
     impl TimerStatus {
         /// Creates a new, non-expired [`TimerStatus`] with a fresh internal timer.
+        #[must_use]
         pub fn new() -> Self {
             Self {
                 expired: false,
@@ -175,6 +177,7 @@ mod timer_status {
         /// Returns `true` if this status has been marked as expired.
         ///
         /// This can be used to skip already-handled entries in the timeout loop.
+        #[must_use]
         pub fn is_expired(&self) -> bool {
             self.expired
         }
@@ -187,6 +190,7 @@ mod timer_status {
         }
         /// Returns an immutable reference to the internal [`Timer`],
         /// allowing inspection of the last activity timestamp.
+        #[must_use]
         pub fn time_out_info(&self) -> &Timer {
             &self.time_out
         }
@@ -239,7 +243,7 @@ mod time_out {
 mod time_update {
     use std::fmt::{Debug, Display};
 
-    use crate::{InsertSync, SandClockInsertion};
+    use crate::SandClockInsertion;
 
     #[derive(Clone, Copy, Debug)]
     pub enum ClockEvent {
@@ -260,15 +264,15 @@ mod time_update {
     ///
     /// Contains the key and the [`ClockEvent`] that triggered the timeout.
     pub struct TimeOutUpdate<K: SandClockInsertion + Debug> {
-        key: InsertSync<K>,
+        key: K,
         event: ClockEvent,
     }
 
     impl<K: SandClockInsertion + Debug> TimeOutUpdate<K> {
-        pub fn new(key: InsertSync<K>, event: ClockEvent) -> Self {
+        pub fn new(key: K, event: ClockEvent) -> Self {
             Self { key, event }
         }
-        pub fn key(&self) -> InsertSync<K> {
+        pub fn key(&self) -> K {
             self.key.clone()
         }
         pub fn event(&self) -> ClockEvent {
@@ -280,7 +284,7 @@ mod time_update {
 mod sync_insertion {
     use std::{hash::Hash, ops::Deref, sync::Arc};
 
-    /// ```sync_insertion``` defines utils to safely use DashMap with Send + Sync key.
+    /// ```sync_insertion``` defines utils to safely use `DashMap` with Send + Sync key.
     ///
     /// Wrapper enum used internally by `SandClock` to safely store keys in a concurrent map.
     ///

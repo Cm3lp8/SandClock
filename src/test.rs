@@ -34,7 +34,7 @@ fn test_timer() {
         .set_time_out_event(move |conn_update| match conn_update.event() {
             ClockEvent::TimeOut => {
                 println!("has_deconnected [{:?}]", conn_update.key());
-                sender.send((conn_update.key().into_inner(), true)).unwrap();
+                sender.send((conn_update.key(), true)).unwrap();
             }
         })
         .set_time_out_duration(time_out_duration)

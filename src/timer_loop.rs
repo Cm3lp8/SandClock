@@ -1,4 +1,6 @@
 use dashmap::DashMap;
+use log::info;
+use rayon::ThreadPoolBuilder;
 
 use crate::{
     InsertSync, SandClockInsertion,
@@ -52,16 +54,27 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
         let map = map.clone();
         let t_o_cb = t_o_cb.clone();
 
+        let (job_sender, job_receiver) = crossbeam_channel::unbounded::<InsertSync<K>>();
+
+        if let Ok(thread_pool) = ThreadPoolBuilder::new().num_threads(4).build() {
+            std::thread::spawn(move || {
+                while let Ok(key) = job_receiver.recv() {
+                    thread_pool.install(|| {
+                        (*t_o_cb)(TimeOutUpdate::new(key.into_inner(), ClockEvent::TimeOut));
+                    });
+                }
+            });
+        }
+
         let refresh_duration = config.get_timer_loop_refreshing_duration();
 
         std::thread::spawn(move || {
             let mut expired_queue: Vec<InsertSync<K>> = vec![];
 
-         
-loop {
+            loop {
                 let mut conn_it = map.iter_mut();
 
- let now = Instant::now();  
+                let now = Instant::now();
 
                 'inner_it: loop {
                     if let Some(mut connection_status_ref) = conn_it.next() {
@@ -73,18 +86,19 @@ loop {
                         let last_updated_instant =
                             connection_status.time_out_info().get_last_instant_update();
 
-                        
-
                         if now.duration_since(last_updated_instant) >= time_out {
                             let key = connection_status_ref.key().clone();
-                            (*t_o_cb)(TimeOutUpdate::new(key.clone(), ClockEvent::TimeOut));
+
+                            if let Err(e) = job_sender.send(key.clone()) {
+                                info!("failed to externalize the expired key [{e:?}]");
+                            }
                             connection_status_ref.value_mut().expired();
 
                             // store expired keys in queue and clean the map later.
                             if !expired_queue.contains(&key) {
                                 expired_queue.push(key);
                             }
-                        };
+                        }
                     } else {
                         break 'inner_it;
                     }
