@@ -56,7 +56,9 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
 
         std::thread::spawn(move || {
             let mut expired_queue: Vec<InsertSync<K>> = vec![];
-            loop {
+
+       let now = Instant::now();     
+loop {
                 let mut conn_it = map.iter_mut();
                 'inner_it: loop {
                     if let Some(mut connection_status_ref) = conn_it.next() {
@@ -68,7 +70,7 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
                         let last_updated_instant =
                             connection_status.time_out_info().get_last_instant_update();
 
-                        let now = Instant::now();
+                        
 
                         if now.duration_since(last_updated_instant) >= time_out {
                             let key = connection_status_ref.key().clone();
