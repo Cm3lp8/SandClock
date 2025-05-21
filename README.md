@@ -20,12 +20,12 @@
 
  //Instantiate the SandClock, with the key type as generic argument.
  let user_connection_base = SandClock::<String>::new(config)
+    .set_time_out_duration(Duration::from_secs(5))
     .set_time_out_event(move |conn_update| match conn_update.event() {
         ClockEvent::TimeOut => {
             println!("No more known activity: [{:?}] has disconnected", conn_update.key());
         }
     })
-    .set_time_out_duration(time_out_duration)
     .build()
     .unwrap();
 
