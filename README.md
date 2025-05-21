@@ -6,7 +6,7 @@
  ## Purpose
 
  **SandClock** is a time-aware `HashMap` designed to track whether a given entity is still active.  
- It’s ideal for use cases such as presence detection, ephemeral sessions, or activity timeouts.
+ You may find it useful for cases such as presence detection, ephemeral sessions, or activity timeouts.
 
 ### Quick Start
 
@@ -15,8 +15,8 @@
   use sand_clock::prelude::*;
 
   //Configure the clock, set the time-checking frequency :
-  let config = SandClockConfig::new().frequency(Duration::from_millis(200)); // ou SandClockConfig::default();
-  //Default is set to 2 seconds.
+  let config = SandClockConfig::new().frequency(Duration::from_millis(200)); // or SandClockConfig::default();
+  //Default is set to 2000 milliseconds.
 
  //Instantiate the SandClock, with the key type as generic argument.
  let user_connection_base = SandClock::<String>::new(config)
