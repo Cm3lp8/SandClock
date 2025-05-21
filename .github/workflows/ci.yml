@@ -15,10 +15,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Rust
-        uses: actions/setup-rust@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          rust-version: stable
+          components: clippy, rustfmt
 
       - name: Build
         run: cargo build --all --verbose
@@ -31,4 +31,3 @@ jobs:
 
       - name: Doc build
         run: cargo doc --no-deps --verbose
-
