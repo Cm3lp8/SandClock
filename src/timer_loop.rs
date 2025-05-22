@@ -5,17 +5,20 @@ use rayon::ThreadPoolBuilder;
 use crate::{
     InsertSync, SandClockInsertion,
     config::SandClockConfig,
-    user_table::{ClockEvent, TimeOutUpdate, TimerStatus},
+    user_table::{ClockEvent, ClockEventIntern, TimerStatus},
 };
 use std::{
     fmt::Debug,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize},
+    },
     time::{Duration, Instant},
 };
 
 #[allow(dead_code)]
 pub struct TimerLoop<K: SandClockInsertion + Debug> {
-    t_o_cb: Arc<dyn Fn(TimeOutUpdate<K>) + Send + Sync + 'static>,
+    t_o_cb: Arc<dyn Fn(ClockEvent<K>) + Send + Sync + 'static>,
     map: Arc<DashMap<InsertSync<K>, TimerStatus>>,
 }
 
@@ -43,9 +46,11 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
     /// Expired entries are removed after each polling cycle to free resources.
     pub fn run(
         config: &SandClockConfig,
+        counter: &Arc<AtomicUsize>,
         map: &Arc<DashMap<InsertSync<K>, TimerStatus>>,
-        t_o_cb: &Arc<dyn Fn(TimeOutUpdate<K>) + Send + Sync + 'static>,
+        t_o_cb: &Arc<dyn Fn(ClockEvent<K>) + Send + Sync + 'static>,
         time_out: Duration,
+        closing_trigger: &Arc<AtomicBool>,
     ) {
         let _timer_loop: TimerLoop<K> = TimerLoop {
             t_o_cb: t_o_cb.clone(),
@@ -54,24 +59,45 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
         let map = map.clone();
         let t_o_cb = t_o_cb.clone();
 
-        let (job_sender, job_receiver) = crossbeam_channel::unbounded::<InsertSync<K>>();
+        let (job_sender, job_receiver) =
+            crossbeam_channel::unbounded::<ClockEventIntern<InsertSync<K>>>();
 
-        if let Ok(thread_pool) = ThreadPoolBuilder::new().num_threads(4).build() {
-            std::thread::spawn(move || {
+        let counter = counter.clone();
+        let closing_trigger_0 = closing_trigger.clone();
+        std::thread::spawn(move || {
+            if let Ok(thread_pool) = ThreadPoolBuilder::new().num_threads(4).build() {
                 while let Ok(key) = job_receiver.recv() {
-                    thread_pool.install(|| {
-                        (*t_o_cb)(TimeOutUpdate::new(key.into_inner(), ClockEvent::TimeOut));
+                    let close = thread_pool.install(|| match key {
+                        ClockEventIntern::TimeOutIntern(key) => {
+                            (*t_o_cb)(ClockEvent::TimeOut(key.into_inner()));
+                            false
+                        }
+                        ClockEventIntern::SandClockDrop => {
+                            (*t_o_cb)(ClockEvent::SandClockDrop);
+                            true
+                        }
                     });
+                    if close {
+                        break;
+                    }
                 }
-            });
-        }
+            }
+        });
 
         let refresh_duration = config.get_timer_loop_refreshing_duration();
 
         std::thread::spawn(move || {
             let mut expired_queue: Vec<InsertSync<K>> = vec![];
 
-            loop {
+            'outter: loop {
+                if closing_trigger_0.load(std::sync::atomic::Ordering::Relaxed) {
+                    // Send a Close event to the time_out callback.
+                    if let Err(e) = job_sender.send(ClockEventIntern::SandClockDrop) {
+                        info!("Failed to Send Drop Signal to user [{e:?}]");
+                    }
+                    // stops the loops, expires the thread.
+                    break 'outter;
+                }
                 let mut conn_it = map.iter_mut();
 
                 let now = Instant::now();
@@ -89,7 +115,9 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
                         if now.duration_since(last_updated_instant) >= time_out {
                             let key = connection_status_ref.key().clone();
 
-                            if let Err(e) = job_sender.send(key.clone()) {
+                            if let Err(e) =
+                                job_sender.send(ClockEventIntern::TimeOutIntern(key.clone()))
+                            {
                                 info!("failed to externalize the expired key [{e:?}]");
                             }
                             connection_status_ref.value_mut().expired();
@@ -105,9 +133,11 @@ impl<K: SandClockInsertion + Debug> TimerLoop<K> {
                 }
                 std::thread::sleep(refresh_duration);
 
+                let removables = expired_queue.len();
                 for k in &expired_queue {
                     map.remove(k);
                 }
+                counter.fetch_sub(removables, std::sync::atomic::Ordering::Relaxed);
             }
         });
     }

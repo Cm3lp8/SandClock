@@ -1,21 +1,29 @@
 pub use main_type::SandClock;
 pub use sync_insertion::*;
-pub use time_update::{ClockEvent, TimeOutUpdate};
+pub use time_update::{ClockEvent, ClockEventIntern};
 pub use timer_status::TimerStatus;
 mod main_type {
-    use std::{fmt::Debug, marker::PhantomData, sync::Arc, time::Duration};
+    use std::{
+        fmt::Debug,
+        marker::PhantomData,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicUsize},
+        },
+        time::Duration,
+    };
 
     use dashmap::DashMap;
 
     use crate::{
-        InsertSync, SandClockInsertion, config::SandClockConfig, errors::SandClockError,
-        timer_loop::TimerLoop,
+        ClockEvent, InsertSync, SandClockInsertion, config::SandClockConfig,
+        errors::SandClockError, timer_loop::TimerLoop,
     };
 
-    use super::{time_update::TimeOutUpdate, timer_status::TimerStatus};
+    use super::timer_status::TimerStatus;
 
     pub struct SandClockBuilder<K: SandClockInsertion + Debug> {
-        time_out_event_call_back: Option<Arc<dyn Fn(TimeOutUpdate<K>) + Send + Sync + 'static>>,
+        time_out_event_call_back: Option<Arc<dyn Fn(ClockEvent<K>) + Send + Sync + 'static>>,
         time_out_duration: Option<Duration>,
         config: SandClockConfig,
         phantom_data: PhantomData<K>,
@@ -23,7 +31,7 @@ mod main_type {
     impl<K: SandClockInsertion + Debug> SandClockBuilder<K> {
         pub fn set_time_out_event(
             &mut self,
-            t_o_event: impl Fn(TimeOutUpdate<K>) + Send + Sync + 'static,
+            t_o_event: impl Fn(ClockEvent<K>) + Send + Sync + 'static,
         ) -> &mut Self {
             self.time_out_event_call_back = Some(Arc::new(t_o_event));
             self
@@ -43,11 +51,22 @@ mod main_type {
                         return Err(SandClockError::BuildErrorNoDurationSet);
                     };
 
-                TimerLoop::run(&self.config, &map, &time_out, time_out_duration);
+                let count = Arc::new(AtomicUsize::new(0));
+                let closing_trigger = Arc::new(AtomicBool::new(false));
+                TimerLoop::run(
+                    &self.config,
+                    &count,
+                    &map,
+                    &time_out,
+                    time_out_duration,
+                    &closing_trigger,
+                );
                 Ok(SandClock {
                     map,
+                    count,
                     config: std::mem::take(&mut self.config),
                     time_out_duration,
+                    closing_trigger,
                 })
             } else {
                 Err(SandClockError::BuildErrorNoTimeOutSet)
@@ -57,15 +76,26 @@ mod main_type {
 
     pub struct SandClock<K: SandClockInsertion> {
         map: Arc<DashMap<InsertSync<K>, TimerStatus>>,
+        count: Arc<AtomicUsize>,
         config: SandClockConfig,
         time_out_duration: Duration,
+        closing_trigger: Arc<AtomicBool>,
+    }
+
+    impl<K: SandClockInsertion> Drop for SandClock<K> {
+        fn drop(&mut self) {
+            self.closing_trigger
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
     }
     impl<K: SandClockInsertion> Clone for SandClock<K> {
         fn clone(&self) -> Self {
             Self {
                 map: self.map.clone(),
+                count: self.count.clone(),
                 config: self.config.clone(),
                 time_out_duration: self.time_out_duration,
+                closing_trigger: self.closing_trigger.clone(),
             }
         }
     }
@@ -83,10 +113,16 @@ mod main_type {
         /// ### Example
         /// ```rust
         /// use std::time::Duration;
-        /// use sand_clock::{SandClockConfig, SandClock};
+        /// use sand_clock::{SandClockConfig, SandClock, ClockEvent};
         /// let sand_clock = SandClock::<usize>::new(SandClockConfig::default())
         ///     .set_time_out_event(|clock_event| {
-        ///         println!("Timeout for key: {:?}", clock_event.key());
+        ///           match clock_event {
+        ///              ClockEvent::TimeOut(key) => {
+        ///
+        ///         println!("Timeout for key: {:?}", key);
+        ///              }
+        ///              _ => {}
+        ///           }
         ///     })
         ///     .set_time_out_duration(Duration::from_secs(1));
         /// ```
@@ -115,7 +151,14 @@ mod main_type {
         /// use sand_clock::{SandClockConfig, SandClock};
         /// let sand_clock = SandClock::<usize>::new(SandClockConfig::default())
         ///     .set_time_out_event(|clock_event| {
-        ///         println!("Timeout for key: {:?}", clock_event.key());
+        ///     
+        ///           match clock_event {
+        ///              ClockEvent::TimeOut(key) => {
+        ///
+        ///         println!("Timeout for key: {:?}", key);
+        ///              }
+        ///              _ => {}
+        ///           }
         ///     })
         ///     .set_time_out_duration(Duration::from_secs(1)).build().unwrap();
         ///  use sand_clock::prelude::*;
@@ -125,7 +168,24 @@ mod main_type {
             self.map
                 .entry(key.to_insert_sync())
                 .and_modify(|conn_status| conn_status.time_out_handler().update_timer())
-                .or_default();
+                .or_insert_with(|| {
+                    self.count
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    TimerStatus::default()
+                });
+        }
+        pub fn remove_key(&self, key: K) {
+            if self.map.remove(&key.to_insert_sync()).is_some() {
+                self.count
+                    .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+        pub fn contains_key(&self, key: K) -> bool {
+            self.map.contains_key(&key.to_insert_sync())
+        }
+        #[must_use]
+        pub fn get_entries_count(&self) -> usize {
+            self.count.load(std::sync::atomic::Ordering::Relaxed)
         }
     }
 }
@@ -245,38 +305,27 @@ mod time_update {
 
     use crate::SandClockInsertion;
 
+    #[derive(Clone, Debug)]
+    pub enum ClockEventIntern<K: SandClockInsertion> {
+        TimeOutIntern(K),
+        SandClockDrop,
+    }
     #[derive(Clone, Copy, Debug)]
-    pub enum ClockEvent {
-        TimeOut,
+    pub enum ClockEvent<K: SandClockInsertion> {
+        TimeOut(K),
+        SandClockDrop,
     }
 
-    impl Display for ClockEvent {
+    impl<K: SandClockInsertion> Display for ClockEvent<K> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                Self::TimeOut => {
+                Self::TimeOut(_k) => {
                     write!(f, "Connnection timout ! ")
                 }
+                Self::SandClockDrop => {
+                    write!(f, "SandClockDrop has dropped")
+                }
             }
-        }
-    }
-
-    /// Information passed to the timeout event callback.
-    ///
-    /// Contains the key and the [`ClockEvent`] that triggered the timeout.
-    pub struct TimeOutUpdate<K: SandClockInsertion + Debug> {
-        key: K,
-        event: ClockEvent,
-    }
-
-    impl<K: SandClockInsertion + Debug> TimeOutUpdate<K> {
-        pub fn new(key: K, event: ClockEvent) -> Self {
-            Self { key, event }
-        }
-        pub fn key(&self) -> K {
-            self.key.clone()
-        }
-        pub fn event(&self) -> ClockEvent {
-            self.event
         }
     }
 }

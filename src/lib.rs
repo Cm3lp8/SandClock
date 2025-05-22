@@ -17,10 +17,11 @@
 //!
 //! //Instantiate the SandClock, with the key type as generic argument.
 //! let user_connection_base = SandClock::<String>::new(config)
-//!    .set_time_out_event(move |conn_update| match conn_update.event() {
-//!        ClockEvent::TimeOut => {
-//!            println!("No more known activity: [{:?}] has disconnected", conn_update.key());
+//!    .set_time_out_event(move |clock_event| match clock_event {
+//!        ClockEvent::TimeOut(key) => {
+//!            println!("No more known activity: [{:?}] has disconnected", key);
 //!        }
+//!         ClockEvent::SandClockDrop => {}
 //!    })
 //!    .set_time_out_duration(Duration::from_millis(15_000))
 //!    .build()
@@ -58,7 +59,7 @@
 //!
 //!
 //! ### Runtime & Safety
-
+//!
 //! - 🧩 **Thread-safe**: Yes – `SandClock` can be safely shared across threads.
 //! - 🔀 **Send + Sync**: Yes – core types are `Send` and `Sync`, usable in multithreaded contexts.
 //! - 🚫 **`no_std`**: Not supported – standard library is required (`std::thread`, `std::time`, etc.).
@@ -83,13 +84,12 @@ pub mod prelude {
     pub use super::{
         config::SandClockConfig, errors::SandClockError, user_table::ClockEvent,
         user_table::InsertSync, user_table::SandClock, user_table::SandClockInsertion,
-        user_table::TimeOutUpdate,
     };
 }
 
 pub use {
     config::SandClockConfig, errors::SandClockError, user_table::ClockEvent, user_table::SandClock,
-    user_table::SandClockInsertion, user_table::TimeOutUpdate,
+    user_table::SandClockInsertion,
 };
 
 use user_table::InsertSync;
