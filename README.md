@@ -54,7 +54,9 @@
 
 ## Disclaimers
 
-- SandClock uses a polling mechanism, so timeouts are not accurate to the millisecond.  
+- SandClock uses a polling mechanism, so timeouts are not accurate to the millisecond. Currently polling mechanism  iterates over all the registered elements in a linear fashion, so with a complexity O(n).
+I didn’t designed it for large scales, but mainly to probe presence among a restricted number of peers (e.g a list of contact in a messenger app, client side).
+
   **Do not use this crate if your application requires precise timeout accuracy.**
 - This crate is currently in beta and has only been tested in my personal projects.  
   Use it at your own risk.
