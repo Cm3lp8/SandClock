@@ -38,7 +38,7 @@
 
  ```
 
-  ⚙️ Runtime-free design: SandClock uses a single background thread and requires no async runtime.
+  ⚙️ Runtime-free design: SandClock uses a single background thread for polling + ```rayon::ThreadPool``` to externalize callback operations from the main loop. Its current form requires no async runtime.
 
  ## How it works
 
