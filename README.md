@@ -1,4 +1,4 @@
-![Build_Status](https://img.shields.io/badge/build-ok-green)
+9![Build_Status](https://img.shields.io/badge/build-ok-green)
 ![dev_status](https://img.shields.io/badge/dev--status-beta-blue)
 
 # SandClock ⏳
@@ -56,7 +56,7 @@
 
 - SandClock uses a polling mechanism, so timeouts are not accurate to the millisecond. 
 
-- Currently, polling mechanism  iterates over all the registered elements in a linear fashion.
+- The polling mechanism  iterates over all the registered elements in a linear fashion.
 I didn’t design it for large scales, but mainly to probe presence among a restricted number of peers (e.g a list of contact in a messenger app, client side).
 
   **Do not use this crate if your application requires precise timeout accuracy.**
